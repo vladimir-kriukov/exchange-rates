@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  php:
+    container_name: exchange_php
+    build:
+      context: docker
+    environment:
+      PHP_SENDMAIL_PATH: /usr/sbin/sendmail -t -i -S mailhog:1025
+      PHP_FPM_USER: wodby
+      PHP_FPM_GROUP: wodby
+      PHP_XDEBUG: 1
+      PHP_XDEBUG_MODE: debug
+      PHP_XDEBUG_START_WITH_REQUEST: 1
+      PHP_XDEBUG_CLIENT_HOST: host.docker.internal
+      PHP_IDE_CONFIG: serverName=exchange
+    volumes:
+      - ./:/var/www/html:cached
+      - /var/www/vendor
+    command: sh -c 'symfony server:start'
+    ports:
+      - 8000:8000
+    networks:
+      - default
+    labels:
+      - 'traefik.backend=exchange_php'
+      - 'traefik.port=8000'
+      - 'traefik.frontend.rule=Host:exchange.localhost'
+
+  mariadb:
+    container_name: exchange_mariadb
+    image: wodby/mariadb:10.5-3.12.1
+    stop_grace_period: 30s
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: symfony
+      MYSQL_USER: symfony
+      MYSQL_PASSWORD: symfony
+    ports:
+      - 3307:3306
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - default
+
+volumes:
+  mysql-data:
+
+networks:
+  default:
+    external: false

@@ -1,0 +1,35 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    App\Providers\CoinDeskRatesProvider:
+        arguments:
+            $url: '%env(COINDESK_URL)%'
+            $base: '%env(COINDESK_BASE)%'
+        tags: [ 'app.rates_provider' ]
+
+    App\Providers\EcbRatesProvider:
+        arguments:
+            $url: '%env(ECB_URL)%'
+            $base: '%env(ECB_BASE)%'
+        tags: [ 'app.rates_provider' ]
+
+    App\Services\RatesUpdater:
+        arguments:
+            - !tagged_iterator app.rates_provider
+
+    App\Command\RatesImportCommand:
+        tags:
+            - { name: 'console.command', command: 'rates:import' }
+
+    App\Command\RatesGetCommand:
+        tags:
+            - { name: 'console.command', command: 'rates:get' }
