@@ -4,38 +4,35 @@ declare(strict_types=1);
 
 namespace App\Entity;
 
+use App\Repository\RateRepository;
 use App\Validator\Constraints\DateRequirements;
 use App\Validator\Constraints\RateCurrencyRequirements;
 use App\Validator\Constraints\RateRequirements;
 use DateTimeImmutable;
 use Doctrine\DBAL\Types\Types;
+use Doctrine\ORM\Mapping as ORM;
 use Doctrine\ORM\Mapping\Column;
-use Doctrine\ORM\Mapping\Entity;
 use Doctrine\ORM\Mapping\GeneratedValue;
-use Doctrine\ORM\Mapping\Id;
-use Doctrine\ORM\Mapping\Index;
-use Doctrine\ORM\Mapping\Table;
-use Doctrine\ORM\Mapping\UniqueConstraint;
 
-#[Entity]
-#[Table(name: 'rates')]
-#[Index(name: 'idx_base_currency', columns: ['base', 'currency'])]
-#[UniqueConstraint(columns: ['date', 'base', 'currency'])]
+#[ORM\Entity(repositoryClass: RateRepository::class)]
+#[ORM\Table(name: 'rates')]
+#[ORM\Index(name: 'idx_base_currency', columns: ['base', 'currency'])]
+#[ORM\UniqueConstraint(columns: ['date', 'base', 'currency'])]
 class Rate
 {
-    #[Id, GeneratedValue, Column(type: Types::INTEGER, updatable: false)]
+    #[ORM\Id, GeneratedValue, Column(type: Types::INTEGER, updatable: false)]
     private int $id;
 
-    #[Column(type: Types::DATE_IMMUTABLE, updatable: true), DateRequirements]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, updatable: true), DateRequirements]
     private DateTimeImmutable $date;
 
-    #[Column(type: Types::STRING, length: 3, updatable: false), RateCurrencyRequirements]
+    #[ORM\Column(type: Types::STRING, length: 3, updatable: false), RateCurrencyRequirements]
     private string $base;
 
-    #[Column(type: Types::DECIMAL, precision: 16, scale: 8, updatable: true), RateRequirements]
+    #[ORM\Column(type: Types::DECIMAL, precision: 16, scale: 8, updatable: true), RateRequirements]
     private string $rate;
 
-    #[Column(type: Types::STRING, length: 3, updatable: false), RateCurrencyRequirements]
+    #[ORM\Column(type: Types::STRING, length: 3, updatable: false), RateCurrencyRequirements]
     private string $currency;
 
     public function getId(): int

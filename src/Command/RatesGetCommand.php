@@ -25,8 +25,10 @@ use function count;
 )]
 class RatesGetCommand extends Command
 {
-    public function __construct(private readonly ValidatorInterface $validator, private readonly RatesConverter $ratesConverter)
-    {
+    public function __construct(
+        private readonly ValidatorInterface $validator,
+        private readonly RatesConverter $ratesConverter
+    ) {
         parent::__construct();
     }
 

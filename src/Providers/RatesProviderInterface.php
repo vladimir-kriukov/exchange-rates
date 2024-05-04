@@ -12,8 +12,6 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 interface RatesProviderInterface
 {
-    public function __construct(HttpClientInterface $client, string $url, string $base);
-
     /**
      * Update all rates and write to database.
      *

@@ -9,6 +9,8 @@ use App\Dto\Rate as RateDto;
 use App\Parsers\JsonResponseParser;
 use App\Parsers\NullResponseParser;
 use App\Parsers\XmlResponseParser;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Exception;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 use Symfony\Contracts\HttpClient\Exception\RedirectionExceptionInterface;
@@ -39,8 +41,9 @@ abstract class RatesProvider implements RatesProviderInterface
     {
         $data = $this->fetch($this->url);
         $data = $this->parse($data);
+        $data = $this->transform($data);
 
-        return $this->transform($data);
+        return array_merge($data, $this->reverse($data));
     }
 
     /**
@@ -88,7 +91,27 @@ abstract class RatesProvider implements RatesProviderInterface
                 $rate['currency'],
                 $rate['base'],
                 $rate['rate'],
-                $rate['date']
+                new \DateTimeImmutable($rate['date']),
+            ),
+            $data
+        );
+    }
+
+    /**
+     * Reverse parsed content into rates array.
+     *
+     * @return RateDto[]
+     *
+     * @throws Exception
+     */
+    protected function reverse(array $data): array
+    {
+        return array_map(
+            static fn (RateDto $rate): Rate => new Rate(
+                $rate->base,
+                $rate->currency,
+                (string)BigDecimal::of(1)->dividedBy(BigDecimal::of($rate->rate), 8, RoundingMode::HALF_DOWN),
+                $rate->date,
             ),
             $data
         );

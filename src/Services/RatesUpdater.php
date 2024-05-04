@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Dto\Rate as RateDto;
-use App\Entity\Rate;
 use App\Entity\Rate as RateEntity;
-use Brick\Math\BigDecimal;
-use Brick\Math\Exception\DivisionByZeroException;
-use Brick\Math\Exception\MathException;
-use Brick\Math\Exception\NumberFormatException;
-use Brick\Math\RoundingMode;
-use Doctrine\Persistence\ManagerRegistry;
+use App\Factory\RateFactory;
+use App\Providers\RatesProviderInterface;
+use App\Repository\RateRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Validator\Exception\OutOfBoundsException;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
@@ -21,148 +18,71 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
  */
 class RatesUpdater
 {
-    public function __construct(private readonly iterable $ratesProviders, private readonly ValidatorInterface $validator, private readonly ManagerRegistry $doctrine)
-    {
+    /**
+     * @param iterable<RatesProviderInterface> $ratesProviders
+     * @param ValidatorInterface $validator
+     * @param EntityManagerInterface $em
+     * @param RateRepository $repository
+     * @param RateFactory $rateFactory
+     */
+    public function __construct(
+        private readonly iterable $ratesProviders,
+        private readonly ValidatorInterface $validator,
+        private readonly EntityManagerInterface $em,
+        private readonly RateRepository $repository,
+        private readonly RateFactory $rateFactory,
+    ) {
     }
 
     /**
      * Get currency rates from providers and save into rates table.
      *
-     * @throws OutOfBoundsException|MathException
+     * @throws OutOfBoundsException
      */
     public function __invoke(): void
     {
-        $rates = [];
-
         foreach ($this->ratesProviders as $ratesProvider) {
-            $rates[] = ($ratesProvider)();
+            /** @var RateDto[] $rateDto */
+            $rateDtos = ($ratesProvider)();
+
+            foreach ($rateDtos as $rateDto) {
+                $this->updateRate($rateDto);
+            }
         }
 
-        $rates = array_merge(...$rates);
-        $this->save($rates);
+        $this->em->flush();
     }
 
     /**
-     * Save rates to the database.
+     * Update or Create a rate entity.
      *
-     * @param RateDto[] $rates
+     * @param RateDto $rateDto
      *
-     * @throws OutOfBoundsException
-     * @throws MathException
+     * @return void
      */
-    protected function save(array $rates): void
+    private function updateRate(RateDto $rateDto): void
     {
-        $entityManager = $this->doctrine->getManager();
-        $validator = $this->validator;
-
-        array_walk($rates, function (RateDto $rateDto) use ($entityManager, $validator): void {
-            $this->updateDirectRate($rateDto, $validator);
-            $this->updateReverseRate($rateDto, $validator);
-        });
-
-        $entityManager->flush();
-    }
-
-    /**
-     * Update existing direct exchange rate.
-     */
-    private function updateDirectRate(RateDto $rateDto, ValidatorInterface $validator): void
-    {
-        $entityManager = $this->doctrine->getManager();
-        $rate = $this->doctrine->getManager()->getRepository(Rate::class)->findOneBy(
+        $rate = $this->repository->findOneBy(
             [
                 'base' => $rateDto->base,
                 'currency' => $rateDto->currency,
             ]
         );
 
-        if ($rate instanceof Rate) {
+        if ($rate instanceof RateEntity) {
             $rate->setRate($rateDto->rate);
             $rate->setDate($rateDto->date);
         } else {
-            $rate = $this->makeDirectRate($rateDto, $validator);
-            $entityManager->persist($rate);
+            $rate = $this->rateFactory->createRateEntityFromRateDto($rateDto);
         }
-    }
 
-    /**
-     * Update existing direct exchange rate.
-     *
-     * @throws MathException
-     */
-    private function updateReverseRate(RateDto $rateDto, ValidatorInterface $validator): void
-    {
-        $entityManager = $this->doctrine->getManager();
-        $rate = $entityManager->getRepository(Rate::class)->findOneBy(
-            [
-                'base' => $rateDto->currency,
-                'currency' => $rateDto->base,
-            ]
-        );
-
-        if ($rate instanceof Rate) {
-            $rateValue = $this->calculateReverseRate($rateDto->rate);
-            $rate->setRate($rateValue);
-            $rate->setDate($rateDto->date);
-        } else {
-            $rate = $this->makeReverseRate($rateDto, $validator);
-            $entityManager->persist($rate);
-        }
-    }
-
-    /**
-     * Direct exchange rate.
-     *
-     * @throws OutOfBoundsException
-     */
-    private function makeDirectRate(RateDto $rateDto, ValidatorInterface $validator): RateEntity
-    {
-        $rate = new RateEntity();
-        $rate->setBase($rateDto->base);
-        $rate->setDate($rateDto->date);
-        $rate->setRate($rateDto->rate);
-        $rate->setCurrency($rateDto->currency);
-        $errors = $validator->validate($rate);
+        $errors = $this->validator->validate($rate);
 
         if (count($errors) > 0) {
             throw new OutOfBoundsException((string)$errors);
         }
 
-        return $rate;
+        $this->em->persist($rate);
     }
 
-    /**
-     * Reverse exchange rate.
-     *
-     * @throws OutOfBoundsException
-     * @throws MathException
-     */
-    private function makeReverseRate(RateDto $rateDto, ValidatorInterface $validator): RateEntity
-    {
-        $rateValue = $this->calculateReverseRate($rateDto->rate);
-        $rate = new RateEntity();
-        $rate->setBase($rateDto->currency);
-        $rate->setDate($rateDto->date);
-        $rate->setRate($rateValue);
-        $rate->setCurrency($rateDto->base);
-        $errors = $validator->validate($rate);
-
-        if (count($errors) > 0) {
-            throw new OutOfBoundsException((string)$errors);
-        }
-
-        return $rate;
-    }
-
-    /**
-     * Calculate reverse rate.
-     *
-     * @throws DivisionByZeroException
-     * @throws MathException
-     * @throws NumberFormatException
-     */
-    private static function calculateReverseRate($rate): string
-    {
-        return (string)BigDecimal::of(1)->dividedBy(BigDecimal::of($rate), 8, RoundingMode::HALF_DOWN);
-    }
 }

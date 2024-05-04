@@ -27,7 +27,7 @@ final class CoinDeskRatesProvider extends RatesProvider
                 $rate['code'],
                 $base,
                 (string)$rate['rate_float'],
-                $date
+                new \DateTimeImmutable($date),
             ),
             $rates
         );

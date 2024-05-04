@@ -30,7 +30,7 @@ final class EcbRatesProvider extends RatesProvider
                 $rate['@attributes']['currency'],
                 $base,
                 (string)$rate['@attributes']['rate'],
-                $date
+                new \DateTimeImmutable($date),
             ),
             $rates
         );

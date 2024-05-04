@@ -7,17 +7,18 @@ namespace App\Services;
 use App\Dto\Exchange;
 use App\Entity\Rate;
 use App\Exceptions\NotExistingRateException;
+use App\Repository\RateRepository;
 use Brick\Math\BigDecimal;
 use Brick\Math\Exception\MathException;
-use Doctrine\Persistence\ManagerRegistry;
 
 /**
  * Rates converter
  */
 class RatesConverter
 {
-    public function __construct(private readonly ManagerRegistry $doctrine)
-    {
+    public function __construct(
+        private readonly RateRepository $repository,
+    ) {
     }
 
     /**
@@ -27,7 +28,7 @@ class RatesConverter
      */
     public function __invoke(Exchange $exchange): string
     {
-        $rate = $this->doctrine->getRepository(Rate::class)->findOneBy(
+        $rate = $this->repository->findOneBy(
             [
                 'base' => $exchange->from,
                 'currency' => $exchange->to,

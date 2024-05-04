@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Dto;
 
 use Brick\Math\BigDecimal;
-use DateTimeImmutable;
 use Exception;
 
 /**
@@ -13,7 +12,6 @@ use Exception;
  */
 class Rate
 {
-    public readonly DateTimeImmutable $date;
     public readonly string $rate;
 
     /**
@@ -23,9 +21,8 @@ class Rate
         public readonly string $currency,
         public readonly string $base,
         string $rate,
-        string $date
+        public \DateTimeImmutable $date
     ) {
         $this->rate = (string)BigDecimal::of($rate);
-        $this->date = new DateTimeImmutable($date);
     }
 }
